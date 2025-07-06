@@ -14,7 +14,6 @@ namespace SmoothCoastLines.Noise
     class VoronoiNoise: NoiseBase, Noise2D
     {
 
-
         double scale;
         const double maxDistanceConstant = 1.41421356237309505; //Square Root of 2
         List<XZ> forcedPoints;
@@ -67,7 +66,6 @@ namespace SmoothCoastLines.Noise
                             if (min_distance > distance)
                             {
                                 min_distance = distance;
-
                             }
                         }
                     }

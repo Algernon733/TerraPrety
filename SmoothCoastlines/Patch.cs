@@ -1,6 +1,7 @@
 ﻿using Cairo;
 using HarmonyLib;
 using MapLayer;
+using SmoothCoastlines.ContinentalUpheaval;
 using SmoothCoastlines.LandformHeights;
 using System;
 using System.Collections.Generic;
@@ -73,26 +74,42 @@ namespace SmoothCoastlines
         public static IEnumerable<CodeInstruction> OnMapRegionGenTranspiler(IEnumerable<CodeInstruction> instructions) {
             var codes = new List<CodeInstruction>(instructions);
 
-            int indexOfInjectPoint = -1;
+            int indexOfUpPad = -1;
+            int indexOfHeightMapInjectPoint = -1;
 
             for (int i = 0; i < codes.Count; i++) {
-                if (codes[i].opcode == OpCodes.Ldstr && codes[i].operand as string == "forceLandform") {
-                    indexOfInjectPoint = i - 3;
+                if (indexOfUpPad == -1 && codes[i].opcode == OpCodes.Ldc_I4_3) {
+                    indexOfUpPad = i;
+                    continue;
+                }
+
+                if (indexOfUpPad > -1 && codes[i].opcode == OpCodes.Ldstr && codes[i].operand as string == "forceLandform") {
+                    indexOfHeightMapInjectPoint = i - 3;
                     break;
                 }
             }
 
             var addHeightmapToRegionMethod = AccessTools.Method(typeof(Patch), "AddHeightmapToRegionData", new Type[1] { typeof(IMapRegion) });
+            //var sendCallToUpheavalHandler = AccessTools.Method(typeof(ContinentalUpheavalHandler), "HandleGenMapsForAddedMaps", new Type[3] { typeof(IMapRegion), typeof(int), typeof(int) });
 
             var addHeightmapToRegionData = new List<CodeInstruction> {
                 CodeInstruction.LoadArgument(1),
                 new CodeInstruction(OpCodes.Call, addHeightmapToRegionMethod)
             };
 
-            if (indexOfInjectPoint > -1) {
-                codes.InsertRange(indexOfInjectPoint, addHeightmapToRegionData);
+           /* var callToAdditionalMapData = new List<CodeInstruction> {
+                CodeInstruction.LoadArgument(1),
+                CodeInstruction.LoadArgument(2),
+                CodeInstruction.LoadArgument(3),
+                new CodeInstruction(OpCodes.Call, sendCallToUpheavalHandler)
+            };*/
+
+            if (indexOfUpPad > -1 && indexOfHeightMapInjectPoint > -1) {
+                codes[indexOfUpPad].opcode = OpCodes.Ldc_I4_5;
+                //codes.InsertRange(indexOfHeightMapInjectPoint, callToAdditionalMapData);
+                codes.InsertRange(indexOfHeightMapInjectPoint, addHeightmapToRegionData);
             } else {
-                SmoothCoastlinesModSystem.Logger.Warning("Could not locate the forceLandform string in OnMapRegionGen. Will not be able to save the Heightmap to Region Data.");
+                SmoothCoastlinesModSystem.Logger.Warning("GenMaps.OnMapRegionGen transpiler has failed. Will not be able to save the Heightmap to Region Data, and upheaval padding is incorrect.");
             }
 
             return codes.AsEnumerable();
