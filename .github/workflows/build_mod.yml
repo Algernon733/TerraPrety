@@ -13,7 +13,7 @@ jobs:
       - name: Containerized Build
         uses: darkluke1111/vsmb@main
         with: 
-          vs_version: 1.20.0
+          vs_version: 1.22.1
 
       - name: Upload Build Artifacts
         uses: actions/upload-artifact@v4
