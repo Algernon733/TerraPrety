@@ -8,7 +8,7 @@ on:
         description: 'Semantic Mod Version'
         required: true
       vintage_story_version:
-        description: 'Vintage Story Version'
+        description: 'Semantic Vintage Story Version'
         required: true
       release_description: 
         required: true
@@ -36,12 +36,12 @@ jobs:
           body: ${{ github.event.inputs.release_description }}
           #body_path: CHANGELOG.md
         env:
-          GITHUB_TOKEN: ${{ github.token }}
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
       - name: upload artifact
         uses: actions/upload-release-asset@v1
         env:
-          GITHUB_TOKEN: ${{ github.token }}
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
           upload_url: ${{ steps.create_release.outputs.upload_url }}
           asset_path: ${{ github.workspace }}/${{env.RESULT}}
