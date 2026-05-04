@@ -1,12 +1,7 @@
-﻿
+﻿using System.Collections.Generic;
 using SmoothCoastlines;
-using SmoothCoastlines.LandformHeights;
 using SmoothCoastLines.Noise;
-using System;
-using System.Collections.Generic;
-using Vintagestory.API.Config;
 using Vintagestory.API.MathTools;
-using Vintagestory.API.Server;
 using Vintagestory.ServerMods;
 
 namespace MapLayer

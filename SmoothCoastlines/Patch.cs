@@ -1,25 +1,13 @@
-﻿using Cairo;
-using HarmonyLib;
-using MapLayer;
-using SmoothCoastlines.ContinentalUpheaval;
-using SmoothCoastlines.LandformHeights;
-using System;
-using System.Collections.Generic;
+﻿using System.Collections.Generic;
 using System.Linq;
 using System.Reflection;
 using System.Reflection.Emit;
-using System.Text;
-using System.Threading.Tasks;
+using HarmonyLib;
+using MapLayer;
+using SmoothCoastlines.LandformHeights;
 using Vintagestory.API.Common;
-using Vintagestory.API.Config;
-using Vintagestory.API.Datastructures;
-using Vintagestory.API.MathTools;
 using Vintagestory.API.Server;
-using Vintagestory.Common;
-using Vintagestory.GameContent;
-using Vintagestory.Server;
 using Vintagestory.ServerMods;
-using Vintagestory.ServerMods.NoObf;
 
 namespace SmoothCoastlines
 {

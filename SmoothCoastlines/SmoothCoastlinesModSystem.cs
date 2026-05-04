@@ -1,12 +1,8 @@
-﻿using Vintagestory.API.Server;
-using Vintagestory.API.Common;
+﻿using System;
 using HarmonyLib;
-using System;
-using Vintagestory.API.MathTools;
-using MapLayer;
+using Vintagestory.API.Common;
+using Vintagestory.API.Server;
 using Vintagestory.ServerMods;
-using Vintagestory.GameContent;
-using System.Collections.Generic;
 
 namespace SmoothCoastlines;
 
