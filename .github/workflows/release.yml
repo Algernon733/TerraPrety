@@ -28,9 +28,9 @@ jobs:
         uses: ncipollo/release-action@v1
         id: create_release
         with:
-          draft: true
+          draft: false
           prerelease: false
-          tag: ${{env.MOD_VERSION}}
+          tag: v${{env.MOD_VERSION}}
           body: ${{ github.event.inputs.release_description }}
           artifacts: ${{ github.workspace }}/${{env.RESULT}}
           artifactContentType: application/zip
