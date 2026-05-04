@@ -37,12 +37,13 @@ namespace SmoothCoastlines
 
         [HarmonyPrefix]
         [HarmonyPatch(typeof(GenMaps), nameof(GenMaps.GetLandformMapGen))]
-        public static bool Prefix(ref MapLayerBase __result, long seed, NoiseClimate climateNoise, ICoreServerAPI api, float landformScale) {
+        public static bool Prefix(ref MapLayerBase __result, long seed, NoiseClimate climateNoise, ICoreServerAPI api, float landformScale)
+        {
             new MapLayerLandforms(seed + 12, climateNoise, api, landformScale); //Luke pointed out this is a much better place to initialize this, since it SHOULD be the same as in the SmoothLandforms version, this should be fine! Both init them the same way, Smooth just also inits the heights as well.
             MapLayerLandformsSmooth mapLayerLandformsSmooth = new MapLayerLandformsSmooth(seed + 12, climateNoise, api, landformScale, SmoothCoastlinesModSystem.config);
             mapLayerLandformsSmooth.DebugDrawBitmap(DebugDrawMode.LandformRGB, 0, 0, "Height-Based Landforms");
             __result = mapLayerLandformsSmooth;
-            
+
             return false;
         }
 
@@ -53,16 +54,18 @@ namespace SmoothCoastlines
         {
             var sapi = (ICoreServerAPI)__instance.GetType().GetField("sapi", BindingFlags.NonPublic | BindingFlags.Instance).GetValue(__instance);
             double regionSize = sapi.WorldManager.RegionSize;
-            var factor =  __instance.noiseSizeOcean / regionSize;
-            __instance.requireLandAt.Add(new XZ((int) (positionX * factor), (int) (positionZ * factor)));
-            
+            var factor = __instance.noiseSizeOcean / regionSize;
+            __instance.requireLandAt.Add(new XZ((int)(positionX * factor), (int)(positionZ * factor)));
+
             return false;
         }
 
         [HarmonyPrefix]
         [HarmonyPatch(typeof(GenMaps), nameof(GenMaps.ForceLandformAt))]
-        public static bool Prefix(GenMaps __instance, ForceLandform landform) {
-            if (__instance.landformsGen is MapLayerLandformsSmooth) {
+        public static bool Prefix(GenMaps __instance, ForceLandform landform)
+        {
+            if (__instance.landformsGen is MapLayerLandformsSmooth)
+            {
                 ((MapLayerLandformsSmooth)__instance.landformsGen).AddForcedLandform(landform);
             }
 
@@ -71,52 +74,36 @@ namespace SmoothCoastlines
 
         [HarmonyTranspiler]
         [HarmonyPatch(typeof(GenMaps), "OnMapRegionGen")]
-        public static IEnumerable<CodeInstruction> OnMapRegionGenTranspiler(IEnumerable<CodeInstruction> instructions) {
-            var codes = new List<CodeInstruction>(instructions);
-
-            int indexOfUpPad = -1;
-            int indexOfHeightMapInjectPoint = -1;
-
-            for (int i = 0; i < codes.Count; i++) {
-                if (indexOfUpPad == -1 && codes[i].opcode == OpCodes.Ldc_I4_3) {
-                    indexOfUpPad = i;
-                    continue;
+        public static IEnumerable<CodeInstruction> OnMapRegionGenTranspiler(IEnumerable<CodeInstruction> instructions)
+        {
+            List<CodeInstruction> list = [.. instructions];
+            int num = -1;
+            int num2 = -1;
+            for (int i = 0; i < list.Count; i++)
+            {
+                if (num == -1 && list[i].opcode == OpCodes.Ldc_I4_3)
+                {
+                    num = i;
                 }
-
-                if (indexOfUpPad > -1 && codes[i].opcode == OpCodes.Ldstr && codes[i].operand as string == "forceLandform") {
-                    indexOfHeightMapInjectPoint = i - 3;
+                else if (num > -1 && list[i].opcode == OpCodes.Ldstr && list[i].operand as string == "forceLandform")
+                {
+                    num2 = i - 3;
                     break;
                 }
             }
-
-            var addHeightmapToRegionMethod = AccessTools.Method(typeof(Patch), "AddHeightmapToRegionData", new Type[1] { typeof(IMapRegion) });
-            //var sendCallToUpheavalHandler = AccessTools.Method(typeof(ContinentalUpheavalHandler), "HandleGenMapsForAddedMaps", new Type[3] { typeof(IMapRegion), typeof(int), typeof(int) });
-
-            var addHeightmapToRegionData = new List<CodeInstruction> {
-                CodeInstruction.LoadArgument(1),
-                new CodeInstruction(OpCodes.Call, addHeightmapToRegionMethod)
-            };
-
-           /* var callToAdditionalMapData = new List<CodeInstruction> {
-                CodeInstruction.LoadArgument(1),
-                CodeInstruction.LoadArgument(2),
-                CodeInstruction.LoadArgument(3),
-                new CodeInstruction(OpCodes.Call, sendCallToUpheavalHandler)
-            };*/
-
-            if (indexOfUpPad > -1 && indexOfHeightMapInjectPoint > -1) {
-                codes[indexOfUpPad].opcode = OpCodes.Ldc_I4_5;
-                //codes.InsertRange(indexOfHeightMapInjectPoint, callToAdditionalMapData);
-                codes.InsertRange(indexOfHeightMapInjectPoint, addHeightmapToRegionData);
-            } else {
-                SmoothCoastlinesModSystem.Logger.Warning("GenMaps.OnMapRegionGen transpiler has failed. Will not be able to save the Heightmap to Region Data, and upheaval padding is incorrect.");
+            MethodInfo methodInfo = AccessTools.Method(typeof(ContinentalUpheavalHandler), "PostGenMapsOnMapRegionGen",[typeof(IMapRegion),typeof(int),typeof(int)], null);
+            List<CodeInstruction> collection = new List<CodeInstruction>
+        {
+            CodeInstruction.LoadArgument(1, false),
+            CodeInstruction.LoadArgument(2, false),
+            CodeInstruction.LoadArgument(3, false),
+            new CodeInstruction(OpCodes.Call, methodInfo)
+        };
+            if (num > -1 && num2 > -1)
+            {
+                list.InsertRange(num2, collection);
             }
-
-            return codes.AsEnumerable();
-        }
-
-        private static void AddHeightmapToRegionData(IMapRegion region) {
-            ((MapLayerLandformsSmooth)SmoothCoastlinesModSystem.Sapi.ModLoader.GetModSystem<GenMaps>().landformsGen)?.AddHeightmapToRegion(region);
+            return list.AsEnumerable();
         }
     }
 }
