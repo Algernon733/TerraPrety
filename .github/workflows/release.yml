@@ -1,0 +1,37 @@
+name: Create Release
+run-name: Create Release ${{github.ref_name}}
+
+on: 
+  workflow_dispatch:
+    inputs:
+      vintage_story_version:
+        description: 'Semantic Vintage Story Version'
+        required: true
+      release_description: 
+        required: true
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+
+      - name: Containerized Build
+        uses: darkluke1111/vsmb@main
+        with: 
+          vs_version: ${{ github.event.inputs.vintage_story_version }}
+
+      - name: release
+        uses: ncipollo/release-action@v1
+        id: create_release
+        with:
+          draft: false
+          prerelease: false
+          tag: v${{env.MOD_VERSION}}
+          commit: ${{ github.sha }}
+          body: ${{ github.event.inputs.release_description }}
+          artifacts: ${{ github.workspace }}/${{env.RESULT}}
+          artifactContentType: application/zip
