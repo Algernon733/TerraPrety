@@ -1,11 +1,11 @@
 {
     "type": "code",
     "modid": "terraprety",
-    "name": "Terra Prety: Coastlines & Continents",
+    "name": "Terra Prety",
     "authors": [
         "Nephelangelo",
         "Darkluke1111",
-	    "JonR"
+	"JonR"
     ],
     "description": "A redesign of worldgen to feel more natural, beautiful and enjoyable to traverse.",
     "Website": "https://mods.vintagestory.at/terraprety",
