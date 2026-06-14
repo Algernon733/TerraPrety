@@ -13,6 +13,12 @@
         public double[] remappingKeys = { 0.115, 0.285 };
         public double[] remappingValues = {0.0, 1.0 };
 
+        public double[] coastRemappingKeys = { 0.00, 0.285 }; // Starts at 0 opacity, ends at max ocean opacity. Keep the 2nd element the same as remappingKeys's 2nd element so it matches the ocean.
+        public double[] coastRemappingValues = { 0.0, 1.0 }; // Don't touch. Basically the coastmap opacities at no coast and full coast.
+        public double coastTargetLandformHeight = 0.3; // In coastal areas, move the landform height down towards this value.
+        public double coastMinOpacity = 0.15; // Areas below this coastal opacity dont have the coast lowering the landform height.
+        public double coastFullOpacity = 0.35; // Areas above this coastal opacity dont get their landform height above coastTargetLandformHeight.
+
         public int heightMapOctaves = 1;
         public float heightMapPersistance = 0.1f;
 

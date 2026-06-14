@@ -1,6 +1,7 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Linq;
+using MapLayer;
 using Vintagestory.API.Common;
 using Vintagestory.API.Datastructures;
 using Vintagestory.API.MathTools;
@@ -239,7 +240,7 @@ namespace TerraPrety.LandformHeights {
             long currentSeed = ThreadLocalPositionSeed(mapGenSeed, xpos, zpos);
 
             double weightSum = 0;
-            double heightAtPoint = heightNoise.Height(unscaledXpos, unscaledZpos);
+            double heightAtPoint = CoastalMapLoweredHeight(unscaledXpos, unscaledZpos);
 
             SaveValueToHeightmap(heightAtPoint);
 
@@ -282,6 +283,35 @@ namespace TerraPrety.LandformHeights {
             // Floating-point drift can leave rand still above 0 after subtracting every weight
             // If that happens use the last variant since i is now 1 past the size of landforms.Variants
             return landforms.Variants[variantCount - 1].index;
+        }
+
+        public double HeightNoiseHeight(int unscaledXpos, int unscaledZpos) 
+            => this.heightNoise.Height(unscaledXpos, unscaledZpos);
+
+        public double CoastalMapLoweredHeight(int unscaledXpos, int unscaledZpos)
+        {
+            double heightNoiseHeight = heightNoise.Height(unscaledXpos, unscaledZpos);
+
+            // Only lower, don't raise
+            if (heightNoiseHeight <= config.coastTargetLandformHeight)
+                return heightNoiseHeight;
+
+            MapLayerOceansSmooth ocean = MapLayerOceansSmooth.Instance;
+            if (ocean == null) // World startup race guard
+                return heightNoiseHeight;
+
+            int oceanX = unscaledXpos * TerraGenConfig.landformMapScale / TerraGenConfig.oceanMapScale;
+            int oceanZ = unscaledZpos * TerraGenConfig.landformMapScale / TerraGenConfig.oceanMapScale;
+            double rawCoastOpacity = ocean.CoastOpacity(oceanX, oceanZ);
+
+            // 0 is no coast, 1 is full coast
+            double normalizedCoastOpacity = Math.Clamp(
+                (rawCoastOpacity - config.coastMinOpacity) / (config.coastFullOpacity - config.coastMinOpacity),
+                0.0,
+                1.0);
+
+            // Lower the landform height down towards the coast target
+            return GameMath.Lerp(heightNoiseHeight, config.coastTargetLandformHeight, normalizedCoastOpacity);
         }
 
         // Move NoiseBase.InitPositionSeed's currentSeed modifications here so different threads can get the seed rng without risking modifying the seed at the same time
