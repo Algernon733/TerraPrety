@@ -51,15 +51,12 @@ public class TerraPretyModSystem : ModSystem
             .WithArgs(api.ChatCommands.Parsers.Int("radius"))
             .HandleWith(args => AdjustLandformSmoothingRadius(api, args));
 
-#if DEBUG
         api.ChatCommands.Create("terrapretycoastmap")
             .WithDescription("Check the coastmap info where you're at")
             .RequiresPrivilege("controlserver")
             .HandleWith(TerraPretyCoastMapDebug);
-#endif
     }
 
-#if DEBUG
     private static TextCommandResult TerraPretyCoastMapDebug(TextCommandCallingArgs args)
     {
         MapLayerOceansSmooth oceanMap = MapLayerOceansSmooth.Instance;
@@ -82,7 +79,6 @@ public class TerraPretyModSystem : ModSystem
             $"Landform height: {landformNoise.HeightNoiseHeight(landformX, landformZ):F3} / 1\n" +
             $"Landform height after coastmap lowers it: {landformNoise.CoastalMapLoweredHeight(landformX, landformZ):F3} / 1");
     }
-#endif
 
     public static WorldGenConfig TryToLoadConfig(ICoreAPI api)
     {
