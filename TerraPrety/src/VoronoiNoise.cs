@@ -20,9 +20,20 @@ namespace TerraPrety.Noise {
         List<XZ> forcedPoints;
         public Dictionary<XZ, VoronoiDataPoint> pointCache => ObjectCacheUtil.GetOrCreate(TerraPretyModSystem.Sapi as ICoreAPI, "continentalVoronoiPoints", () => new Dictionary<XZ, VoronoiDataPoint>());
 
+        private readonly long mapGenSeed;
+
         public VoronoiNoise(long seed, double scale, List<XZ> forcedPoints) : base(seed) {
             this.scale = scale;
             this.forcedPoints = forcedPoints;
+
+            // A separate seed from NoiseBase so we don't mutate NoiseBase's seed by using it at the same time on different genTerra threads.
+            this.mapGenSeed = seed;
+            this.mapGenSeed *= (seed * 6364136223846793005L) + 1442695040888963407L;
+            this.mapGenSeed += 1L;
+            this.mapGenSeed *= (seed * 6364136223846793005L) + 1442695040888963407L;
+            this.mapGenSeed += 2L;
+            this.mapGenSeed *= (seed * 6364136223846793005L) + 1442695040888963407L;
+            this.mapGenSeed += 3L;
         }
 
         //Will generate the voronoi noise value at the given point normalized to [0,1]
@@ -71,9 +82,9 @@ namespace TerraPrety.Noise {
                     // Generate a random voronoi point for the cell if none is forced
                     if(!forced)
                     {
-                        InitPositionSeed(xCell - 1 + dx, zCell - 1 + dz);
-                        pointPosX = (NextInt(10000) / 10000.0) - 1 + dx;
-                        pointPosZ = (NextInt(10000) / 10000.0) - 1 + dz;
+                        long seed = PositionSeed(xCell - 1 + dx, zCell - 1 + dz);
+                        pointPosX = (NextIntLocal(ref seed, 10000) / 10000.0) - 1 + dx;
+                        pointPosZ = (NextIntLocal(ref seed, 10000) / 10000.0) - 1 + dz;
                         newPoint.SetNeighborByXZOffset(dx, dz, new XZd(pointPosX, pointPosZ));
 
                         var distance = GameMath.Sqrt((xFrac - pointPosX) * (xFrac - pointPosX) + (zFrac - pointPosZ) * (zFrac - pointPosZ));
@@ -87,6 +98,30 @@ namespace TerraPrety.Noise {
 
             // Normalize to [0,1] and return
             return min_distance / maxDistanceConstant;
+        }
+
+        private long PositionSeed(int xPos, int zPos) {
+            long seed = mapGenSeed;
+            seed *= (seed * 6364136223846793005L) + 1442695040888963407L;
+            seed += xPos;
+            seed *= (seed * 6364136223846793005L) + 1442695040888963407L;
+            seed += zPos;
+            seed *= (seed * 6364136223846793005L) + 1442695040888963407L;
+            seed += xPos;
+            seed *= (seed * 6364136223846793005L) + 1442695040888963407L;
+            seed += zPos;
+
+            return seed;
+        }
+
+        private int NextIntLocal(ref long seed, int max) {
+            int r = (int)((seed >> 24) % (long)max);
+            if (r < 0)
+                r += max;
+            seed *= (seed * 6364136223846793005L) + 1442695040888963407L;
+            seed += mapGenSeed;
+
+            return r;
         }
     }
 
