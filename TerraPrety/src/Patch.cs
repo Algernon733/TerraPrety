@@ -1,4 +1,5 @@
-﻿using System.Collections.Generic;
+﻿using System;
+using System.Collections.Generic;
 using System.Linq;
 using System.Reflection;
 using System.Reflection.Emit;
@@ -92,6 +93,50 @@ namespace TerraPrety
             {
                 list.InsertRange(num2, collection);
             }
+            return list.AsEnumerable();
+        }
+
+        // Disables the sea level rise effect in genblocklayers that brings terrain near sealevel to sealevel.
+        // Now its disabled, all terrain effects now only come from genTerra.
+        [HarmonyTranspiler]
+        [HarmonyPatch(typeof(GenBlockLayers), "OnChunkColumnGeneration")]
+        public static IEnumerable<CodeInstruction> DisableSeaLevelRiseTranspiler(IEnumerable<CodeInstruction> instructions)
+        {
+            // We're cutting out this line:
+            // int sealevelrise = (int)Math.Min(Math.Max(0f, (0.5f - rainRel) * 40f), seaLevel - rocky);
+
+            List<CodeInstruction> list = [.. instructions];
+            for (int i = 0; i < list.Count - 1; i++)
+            {
+                // Filter for (* 40f) 
+                if (list[i].opcode != OpCodes.Ldc_R4 ||
+                    list[i].operand is not float mul ||
+                    Math.Abs(mul - 40f) > 0.0001f ||
+                    list[i + 1].opcode != OpCodes.Mul)
+                {
+                    continue;
+                }
+
+                // Filter for (0.5f)
+                bool foundSeaLevelRiseLine = false;
+                for (int j = Math.Max(0, i - 8); j < i; j++)
+                {
+                    if (list[j].opcode == OpCodes.Ldc_R4 &&
+                        list[j].operand is float half &&
+                        Math.Abs(half - 0.5f) < 0.0001f)
+                    {
+                        foundSeaLevelRiseLine = true;
+                        break;
+                    }
+                }
+
+                if (!foundSeaLevelRiseLine)
+                    continue;
+
+                list[i].operand = 0f;
+                break;
+            }
+
             return list.AsEnumerable();
         }
     }
