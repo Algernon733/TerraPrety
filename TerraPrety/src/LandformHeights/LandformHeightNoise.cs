@@ -89,7 +89,7 @@ namespace TerraPrety.LandformHeights {
             int hOctaves = this.config.heightMapOctaves;
             float hScale = this.config.heightMapNoiseScale;
             float hPersistance = this.config.heightMapPersistance;
-            heightNoise = new WeightedNormalizedSimplexNoise(hOctaves, 1 / hScale, hPersistance, seed + 53247, this.config.radiusMultOutwardsForSmoothing, scale, config.chanceForMidZone, config.midHeightKeys, config.midHeightValues, config.targetMidLevel, config.lowThreshForMidZone, config.inlandMountainRangeScale, config.inlandMountainRangeKeys, config.inlandMountainRangeValues, config.MountainRangesPullsHeightMapTowards);
+            heightNoise = new WeightedNormalizedSimplexNoise(hOctaves, 1 / hScale, hPersistance, seed + 53247, this.config.radiusMultOutwardsForSmoothing, scale, config.chanceForMidZone, config.midHeightKeys, config.midHeightValues, config.targetMidLevel, config.lowThreshForMidZone, config.inlandMountainRangeScale, config.inlandMountainRangeKeys, config.inlandMountainRangeValues, config.mountainRangesPullsHeightMapTowards);
 
             threshForOceanicityComp = config.heightThresholdsForOceanicityComp;
             oceanicityCompMults = config.heightMultsAtThresholdsForOceanicityComp;
@@ -101,7 +101,7 @@ namespace TerraPrety.LandformHeights {
             mountainRangeWobbleZ = NormalizedSimplexNoise.FromDefaultOctaves(config.inlandMountainRangeWobbleOctaves, 1 / inlandMountainRangeWobbleScale, config.inlandMountainRangeWobblePersistence, seed + 7433);
 
             inlandApertureMaskNoise = NormalizedSimplexNoise.FromDefaultOctaves(1, 1 / (config.inlandMountainRangeApertureMaskScale * TerraGenConfig.landformMapScale), 0.9, seed + 5101);
-            coastalApertureMaskNoise = NormalizedSimplexNoise.FromDefaultOctaves(1, 1 / (config.coastalMountainRangeApertureScale * TerraGenConfig.landformMapScale), 0.9, seed + 5119);
+            coastalApertureMaskNoise = NormalizedSimplexNoise.FromDefaultOctaves(1, 1 / (config.coastalMountainRangeApertureMaskScale * TerraGenConfig.landformMapScale), 0.9, seed + 5119);
 
             LoadLandforms(api);
         }

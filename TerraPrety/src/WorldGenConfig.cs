@@ -28,7 +28,7 @@
         public float targetMidLevel = 0.2f;
         public float lowThreshForMidZone = 0.2f;
 
-        public float MountainRangesPullsHeightMapTowards = 1.0f; // The mountain ranges drags the landform heightmap towards this value
+        public float mountainRangesPullsHeightMapTowards = 1.0f; // The mountain ranges drags the landform heightmap towards this value
 
         // Inland mountain ranges gets its own wobble noise, coastal mountain ranges follow the continents, so they use the continental wobble
         public float inlandMountainRangeWobbleScale = 2.5f;
@@ -49,7 +49,7 @@
         public double[] coastalMountainRangeKeys = { 0.6, 0.85 }; // Shape of the coastal mountain range within the band's base width
         public double[] coastalMountainRangeValues = { 0.0, 1.0 }; // Don't touch. Basically the coastal mountain range opacities at the beginning of the band and in the center of the band
 
-        public float coastalMountainRangeApertureScale = 15.0f; // Larger for larger mountain ranges
+        public float coastalMountainRangeApertureMaskScale = 15.0f; // Larger for larger mountain ranges
         public float coastalMountainRangeApertureMaskThreshold = 0.8f;  // Near 1 gives less mountain ranges, lower gives more
         public float coastalMountainRangeApertureMaskSharpness = 0.1f; // Near 0 gives a smooth mountainrange fadein, higher is sharper
 
