@@ -38,6 +38,24 @@ namespace TerraPrety.Noise {
 
         //Will generate the voronoi noise value at the given point normalized to [0,1]
         public double getValueAt(int unscaledXpos, int unscaledZpos) {
+            this.GetValueAt(unscaledXpos, unscaledZpos, out double min_distance, out double _);
+
+            // Normalize to [0,1] and return
+            return min_distance / maxDistanceConstant;
+        }
+
+        // Gets the mountain ridge pattern from the F2-F1 Cellular Square pattern http://www.neilblevins.com/art_lessons/procedural_noise/procedural_noise.html
+        public double GetMountainRidgeValueAt(int unscaledXpos, int unscaledZpos) {
+            this.GetValueAt(unscaledXpos, unscaledZpos, out double F1_1stClosestPointDistance, out double F2_2ndClosestPointDistance);
+
+            double voronoiCellularPattern = 1.0 - (F2_2ndClosestPointDistance - F1_1stClosestPointDistance);
+            if (voronoiCellularPattern < 0.0)
+                return (double)0.0;
+            else
+                return (double)voronoiCellularPattern;
+        }
+
+        private void GetValueAt(int unscaledXpos, int unscaledZpos, out double F1_1stClosestPointDistance, out double F2_2ndClosestPointDistance) {
             double xpos_full = unscaledXpos / scale;
             double zpos_full = unscaledZpos / scale;
 
@@ -48,16 +66,13 @@ namespace TerraPrety.Noise {
             //Fractional part is the location relative to the voronoi square
             double xFrac = xpos_full - xCell;
             double zFrac = zpos_full - zCell;
-            XZ cellXZ = new XZ(xCell, zCell);
 
-            double min_distance = Double.MaxValue;
-            VoronoiDataPoint newPoint = new VoronoiDataPoint(new XZd());
+            F1_1stClosestPointDistance = double.MaxValue;
+            F2_2ndClosestPointDistance = double.MaxValue;
 
             // Iterate over the voronoi square and its 8 nighbours
             for (int dx = 0; dx < 3; dx++) {
                 for (int dz = 0; dz < 3; dz++) {
-                    double pointPosX;
-                    double pointPosZ;
 
                     //First check whether we have forced voronoi points in this cell
                     bool forced = false;
@@ -67,37 +82,37 @@ namespace TerraPrety.Noise {
                         if (xCell - 1 + dx < forcedX && xCell - 1 + dx + 1 >= forcedX
                             && zCell - 1 + dz < forcedY && zCell - 1 + dz + 1 >= forcedY)
                         {
-                            pointPosX = forcedX - xCell;
-                            pointPosZ = forcedY - zCell;
+                            double pointPosX = forcedX - xCell;
+                            double pointPosZ = forcedY - zCell;
                             forced = true;
-                            newPoint.SetNeighborByXZOffset(dx, dz, new XZd(pointPosX, pointPosZ));
-
-                            var distance = GameMath.Sqrt((xFrac - pointPosX) * (xFrac - pointPosX) + (zFrac - pointPosZ) * (zFrac - pointPosZ));
-                            if (min_distance > distance)
-                            {
-                                min_distance = distance;
-                            }
+                            // Find the closest two voronoi points
+                            CompareNearest(xFrac, zFrac, pointPosX, pointPosZ, ref F1_1stClosestPointDistance, ref F2_2ndClosestPointDistance);
                         }
                     }
                     // Generate a random voronoi point for the cell if none is forced
                     if(!forced)
                     {
                         long seed = PositionSeed(xCell - 1 + dx, zCell - 1 + dz);
-                        pointPosX = (NextIntLocal(ref seed, 10000) / 10000.0) - 1 + dx;
-                        pointPosZ = (NextIntLocal(ref seed, 10000) / 10000.0) - 1 + dz;
-                        newPoint.SetNeighborByXZOffset(dx, dz, new XZd(pointPosX, pointPosZ));
-
-                        var distance = GameMath.Sqrt((xFrac - pointPosX) * (xFrac - pointPosX) + (zFrac - pointPosZ) * (zFrac - pointPosZ));
-                        if (min_distance > distance)
-                        {
-                            min_distance = distance;
-                        }
+                        double pointPosX = (NextIntLocal(ref seed, 10000) / 10000.0) - 1 + dx;
+                        double pointPosZ = (NextIntLocal(ref seed, 10000) / 10000.0) - 1 + dz;
+                        CompareNearest(xFrac, zFrac, pointPosX, pointPosZ, ref F1_1stClosestPointDistance, ref F2_2ndClosestPointDistance);
                     }
                 }
             }
+        }
 
-            // Normalize to [0,1] and return
-            return min_distance / maxDistanceConstant;
+        // F1 is closest, F2 is second closest
+        private static void CompareNearest(double xFrac, double zFrac, double pointPosX, double pointPosZ, ref double F1, ref double F2) {
+            double distance = GameMath.Sqrt(((xFrac - pointPosX) * (xFrac - pointPosX)) + ((zFrac - pointPosZ) * (zFrac - pointPosZ)));
+            if (distance < F1)
+            {
+                F2 = F1;
+                F1 = distance;
+            }
+            else if (distance < F2)
+            {
+                F2 = distance;
+            }
         }
 
         private long PositionSeed(int xPos, int zPos) {
@@ -123,6 +138,10 @@ namespace TerraPrety.Noise {
 
             return r;
         }
+    }
+
+    public class VoronoiRidgeNoise(VoronoiNoise voronoi) : Noise2D {
+        public double getValueAt(int unscaledXpos, int unscaledZpos) => voronoi.GetMountainRidgeValueAt(unscaledXpos, unscaledZpos);
     }
 
     public struct XZd {

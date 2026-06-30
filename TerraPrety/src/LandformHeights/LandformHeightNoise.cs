@@ -54,6 +54,7 @@ namespace TerraPrety.LandformHeights {
         [ThreadStatic] static int heightMapRegionXSize;
         [ThreadStatic] static int heightMapRegionZSize;
         [ThreadStatic] public static int[] heightMapValues;
+        [ThreadStatic] public static int[] mountainRangeMapValues;
         [ThreadStatic] static double[] weightTmp;
 
         private readonly long mapGenSeed;
@@ -61,6 +62,13 @@ namespace TerraPrety.LandformHeights {
         private float[] threshForOceanicityComp;
         private float[] oceanicityCompMults;
         private float[] oceanicityCompFlats;
+
+        private NormalizedSimplexNoise mountainRangeWobbleX;
+        private NormalizedSimplexNoise mountainRangeWobbleZ;
+        private float mountainRangeWobbleIntensity;
+
+        private NormalizedSimplexNoise inlandApertureMaskNoise;
+        private NormalizedSimplexNoise coastalApertureMaskNoise;
 
         public LandformHeightNoise(long seed, ICoreServerAPI api, float scale, WorldGenConfig config) : base(seed) {
             this.scale = scale;
@@ -81,11 +89,19 @@ namespace TerraPrety.LandformHeights {
             int hOctaves = this.config.heightMapOctaves;
             float hScale = this.config.heightMapNoiseScale;
             float hPersistance = this.config.heightMapPersistance;
-            heightNoise = new WeightedNormalizedSimplexNoise(hOctaves, 1 / hScale, hPersistance, seed + 53247, this.config.radiusMultOutwardsForSmoothing, scale, config.chanceForMidZone, config.midHeightKeys, config.midHeightValues, config.targetMidLevel, config.lowThreshForMidZone);
+            heightNoise = new WeightedNormalizedSimplexNoise(hOctaves, 1 / hScale, hPersistance, seed + 53247, this.config.radiusMultOutwardsForSmoothing, scale, config.chanceForMidZone, config.midHeightKeys, config.midHeightValues, config.targetMidLevel, config.lowThreshForMidZone, config.inlandMountainRangeScale, config.inlandMountainRangeKeys, config.inlandMountainRangeValues, config.MountainRangesPullsHeightMapTowards);
 
             threshForOceanicityComp = config.heightThresholdsForOceanicityComp;
             oceanicityCompMults = config.heightMultsAtThresholdsForOceanicityComp;
             oceanicityCompFlats = config.heightFlatsAtThresholdsForOceanicityComp;
+
+            float inlandMountainRangeWobbleScale = config.inlandMountainRangeWobbleScale * TerraGenConfig.landformMapScale;
+            mountainRangeWobbleIntensity = config.inlandMountainRangeWobbleIntensity * TerraGenConfig.landformMapScale;
+            mountainRangeWobbleX = NormalizedSimplexNoise.FromDefaultOctaves(config.inlandMountainRangeWobbleOctaves, 1 / inlandMountainRangeWobbleScale, config.inlandMountainRangeWobblePersistence, seed + 7411);
+            mountainRangeWobbleZ = NormalizedSimplexNoise.FromDefaultOctaves(config.inlandMountainRangeWobbleOctaves, 1 / inlandMountainRangeWobbleScale, config.inlandMountainRangeWobblePersistence, seed + 7433);
+
+            inlandApertureMaskNoise = NormalizedSimplexNoise.FromDefaultOctaves(1, 1 / (config.inlandMountainRangeApertureMaskScale * TerraGenConfig.landformMapScale), 0.9, seed + 5101);
+            coastalApertureMaskNoise = NormalizedSimplexNoise.FromDefaultOctaves(1, 1 / (config.coastalMountainRangeApertureScale * TerraGenConfig.landformMapScale), 0.9, seed + 5119);
 
             LoadLandforms(api);
         }
@@ -192,7 +208,7 @@ namespace TerraPrety.LandformHeights {
             fallbackParentLandformID = 0; //This will at least ensure it is set to _something_ and it will just take the first entry. In the case of a typo or the like.
         }
 
-        public int GetLandformIndexAt(int unscaledXpos, int unscaledZpos, int temp, int rain) {
+        public int GetLandformIndexAt(int unscaledXpos, int unscaledZpos, double mountainRangeOpacity, int temp, int rain) {
             int noiseSizeLandform = sapi.ModLoader.GetModSystem<GenMaps>().noiseSizeLandform;
 
             int regionX = unscaledXpos / (noiseSizeLandform - TerraGenConfig.landformMapPadding);
@@ -210,7 +226,7 @@ namespace TerraPrety.LandformHeights {
             //TerraGenConfig.landformMapPadding = 1;
             //TerraGenConfig.terrainNoiseVerticalScale = 2;
 
-            int parentIndex = GetParentLandformIndexAt(xposInt, zposInt, unscaledXpos, unscaledZpos, temp, rain);
+            int parentIndex = GetParentLandformIndexAt(xposInt, zposInt, unscaledXpos, unscaledZpos, mountainRangeOpacity, temp, rain);
 
             LandformVariant[] mutations = landforms.Variants[parentIndex].Mutations;
             if (mutations != null && mutations.Length > 0) {
@@ -236,13 +252,20 @@ namespace TerraPrety.LandformHeights {
         }
 
 
-        public int GetParentLandformIndexAt(int xpos, int zpos, int unscaledXpos, int unscaledZpos, int temp, int rain) {
+        public int GetParentLandformIndexAt(int xpos, int zpos, int unscaledXpos, int unscaledZpos, double mountainRangeOpacity, int temp, int rain) {
             long currentSeed = ThreadLocalPositionSeed(mapGenSeed, xpos, zpos);
 
             double weightSum = 0;
-            double heightAtPoint = CoastalMapLoweredHeight(unscaledXpos, unscaledZpos);
+            double coastHeight = this.CoastalMapLoweredHeight(unscaledXpos, unscaledZpos);
+            
+            // Don't lift within forced landforms
+            double heightAtPoint;
+            if (heightNoise.IsInForcedLandform(unscaledXpos, unscaledZpos))
+                heightAtPoint = (double)coastHeight;
+            else
+                heightAtPoint = (double)heightNoise.LiftTowardMountainRangeTargetHeight(coastHeight, mountainRangeOpacity);
 
-            SaveValueToHeightmap(heightAtPoint);
+            this.SaveValueToHeightmap(heightAtPoint, mountainRangeOpacity);
 
             // Thread local landform variant weights
             int variantCount = landforms.Variants.Length;
@@ -285,8 +308,61 @@ namespace TerraPrety.LandformHeights {
             return landforms.Variants[variantCount - 1].index;
         }
 
-        public double HeightNoiseHeight(int unscaledXpos, int unscaledZpos) 
+        public double HeightNoiseHeight(int unscaledXpos, int unscaledZpos)
             => this.heightNoise.Height(unscaledXpos, unscaledZpos);
+
+        public double FinalMountainRangeMask(int unscaledXpos, int unscaledZpos)
+        {
+            this.MountainRangeWobble(unscaledXpos, unscaledZpos, out int wobbledX, out int wobbledZ);
+
+            // Blend the inland mountain range with the coastal mountain range to give the finished mountain range
+            return Math.Max(
+                this.InlandMountainRangeRaw(wobbledX, wobbledZ) * this.InlandApertureMask(unscaledXpos, unscaledZpos),
+                this.CoastalMountainRangeRaw(wobbledX, wobbledZ) * this.CoastalApertureMask(unscaledXpos, unscaledZpos));
+        }
+
+        private double InlandMountainRangeRaw(int x, int z) => this.heightNoise.InlandMountainRangeMaskValue(x, z);
+
+        private double CoastalMountainRangeRaw(int x, int z)
+        {
+            MapLayerOceansSmooth ocean = MapLayerOceansSmooth.Instance;
+            if (ocean == null)
+                return 0.0;
+
+            int oceanX = x * TerraGenConfig.landformMapScale / TerraGenConfig.oceanMapScale;
+            int oceanZ = z * TerraGenConfig.landformMapScale / TerraGenConfig.oceanMapScale;
+            double continentalPosition = ocean.ContinentalPosition(oceanX, oceanZ);
+
+            double coastalMountainRangeBand = 1.0 - (Math.Abs(continentalPosition - config.coastalMountainRangeBandPositionInContinent) / config.coastalMountainRangeBandBaseWidth);
+            if (coastalMountainRangeBand <= 0.0)
+                return 0.0;
+
+            return NoiseRemapper.GetValueAt(coastalMountainRangeBand, config.coastalMountainRangeKeys, config.coastalMountainRangeValues);
+        }
+
+        private void MountainRangeWobble(int x, int z, out int wobbledX, out int wobbledZ)
+        {
+            wobbledX = x + (int)(mountainRangeWobbleIntensity * mountainRangeWobbleX.Noise(x, z));
+            wobbledZ = z + (int)(mountainRangeWobbleIntensity * mountainRangeWobbleZ.Noise(x, z));
+        }
+
+        private double InlandApertureMask(int x, int z) => ApertureMask(inlandApertureMaskNoise.Noise(x, z), config.inlandMountainRangeApertureMaskThreshold, config.inlandMountainRangeApertureMaskSharpness);
+        private double CoastalApertureMask(int x, int z) => ApertureMask(coastalApertureMaskNoise.Noise(x, z), config.coastalMountainRangeApertureMaskThreshold, config.coastalMountainRangeApertureMaskSharpness);
+
+        private static double ApertureMask(double noise, double threshold, double ApertureSharpness)
+        {
+            if (ApertureSharpness <= 0.0)
+            {
+                if (noise >= threshold)
+                    return (double)1.0;
+                else
+                    return (double)0.0;
+            }
+
+            // Smoothstep in the mask
+            double step = GameMath.Clamp((noise - (threshold - ApertureSharpness)) / (2.0 * ApertureSharpness), 0.0, 1.0);
+            return step * step * (3.0 - (2.0 * step));
+        }
 
         public double CoastalMapLoweredHeight(int unscaledXpos, int unscaledZpos)
         {
@@ -364,14 +440,18 @@ namespace TerraPrety.LandformHeights {
         public void PrepareForNewHeightmap(int xCoord, int zCoord, int sizeX, int sizeZ) {
             heightMapValues = null;
             heightMapValues = new int[sizeX * sizeZ];
+            mountainRangeMapValues = null;
+            mountainRangeMapValues = new int[sizeX * sizeZ];
             heightMapRegionXSize = sizeX;
             heightMapRegionZSize = sizeZ;
             xPos = 0;
             zPos = 0;
         }
 
-        public void SaveValueToHeightmap(double height) {
-            heightMapValues[zPos * heightMapRegionXSize + xPos] = (int)(height * significantDigitMult);
+        public void SaveValueToHeightmap(double height, double mountainRangeOpacity) {
+            int index = zPos * heightMapRegionXSize + xPos;
+            heightMapValues[index] = (int)(height * significantDigitMult);
+            mountainRangeMapValues[index] = (int)(GameMath.Clamp(mountainRangeOpacity, 0.0, 1.0) * 255);
 
             zPos++;
             if (zPos >= heightMapRegionZSize) {
@@ -388,6 +468,20 @@ namespace TerraPrety.LandformHeights {
 
             return new IntDataMap2D {
                 Data = heightCopy,
+                Size = landformScale + 2 * pad,
+                TopLeftPadding = pad,
+                BottomRightPadding = pad
+            };
+        }
+
+        public IntDataMap2D GetMountainRangeData() {
+            var pad = TerraGenConfig.landformMapPadding;
+            var landformScale = sapi.WorldManager.RegionSize / TerraGenConfig.landformMapScale;
+            int[] mountainRangeCopy = new int[mountainRangeMapValues.Length];
+            mountainRangeMapValues.CopyTo(mountainRangeCopy, 0);
+
+            return new IntDataMap2D {
+                Data = mountainRangeCopy,
                 Size = landformScale + 2 * pad,
                 TopLeftPadding = pad,
                 BottomRightPadding = pad

@@ -74,5 +74,11 @@ namespace MapLayer
             this.Wobble(ox, oz, out int wx, out int wz);
             return oceanAndCoastNoise.getValueAt(wx, wz);
         }
+
+        public double ContinentalPosition(int ox, int oz)
+        {
+            this.Wobble(ox, oz, out int wx, out int wz);
+            return voronoiNoise.getValueAt(wx, wz);
+        }
     }
 }
