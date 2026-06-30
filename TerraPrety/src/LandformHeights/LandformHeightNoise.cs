@@ -316,9 +316,24 @@ namespace TerraPrety.LandformHeights {
             this.MountainRangeWobble(unscaledXpos, unscaledZpos, out int wobbledX, out int wobbledZ);
 
             // Blend the inland mountain range with the coastal mountain range to give the finished mountain range
-            return Math.Max(
+            double mountainRange = Math.Max(
                 this.InlandMountainRangeRaw(wobbledX, wobbledZ) * this.InlandApertureMask(unscaledXpos, unscaledZpos),
                 this.CoastalMountainRangeRaw(wobbledX, wobbledZ) * this.CoastalApertureMask(unscaledXpos, unscaledZpos));
+
+            return mountainRange * this.OceanFadeMountainRange(unscaledXpos, unscaledZpos);
+        }
+
+        private double OceanFadeMountainRange(int unscaledXpos, int unscaledZpos)
+        {
+            MapLayerOceansSmooth ocean = MapLayerOceansSmooth.Instance;
+            if (ocean == null)
+                return 1.0;
+
+            int oceanX = unscaledXpos * TerraGenConfig.landformMapScale / TerraGenConfig.oceanMapScale;
+            int oceanZ = unscaledZpos * TerraGenConfig.landformMapScale / TerraGenConfig.oceanMapScale;
+            double oceanOpacity = ocean.OceanOpacity(oceanX, oceanZ);
+
+            return 1.0 - GameMath.Clamp(oceanOpacity * config.mountainRangeOceanFadeStrength, 0.0, 1.0);
         }
 
         private double InlandMountainRangeRaw(int x, int z) => this.heightNoise.InlandMountainRangeMaskValue(x, z);

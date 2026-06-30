@@ -29,6 +29,7 @@
         public float lowThreshForMidZone = 0.2f;
 
         public float mountainRangesPullsHeightMapTowards = 1.0f; // The mountain ranges drags the landform heightmap towards this value
+        public float mountainRangeOceanFadeStrength = 1.0f;
 
         // Inland mountain ranges gets its own wobble noise, coastal mountain ranges follow the continents, so they use the continental wobble
         public float inlandMountainRangeWobbleScale = 2.5f;
