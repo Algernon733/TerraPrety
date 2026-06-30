@@ -413,28 +413,33 @@ namespace TerraPrety.LandformHeights {
             return num;
         }
 
-        // Replacement saltwater/freshwater oceanicity check with a coastmap check instead of the ocean map
-        // This lets us move saltwater/beaches further inland
-        public float GetCompValueForOceanicity(int worldX, int worldZ, float oceanicity) {
-            MapLayerOceansSmooth ocean = MapLayerOceansSmooth.Instance;
-            if (ocean == null)
-                return 0f; // Racey calls fallback to no ocean/saltwater
+        public float GetCompValueForOceanicity(int worldX, int worldZ, float oceanicity) { //This is a mess I'll clean up later. Oof.
+            if (oceanicity <= 16.6663f) {
+                return 16.6664f;
+            }
 
-            double oceanCellXf = (double)worldX / TerraGenConfig.oceanMapScale;
-            double oceanCellZf = (double)worldZ / TerraGenConfig.oceanMapScale;
-            int oceanCellXi = (int)Math.Floor(oceanCellXf);
-            int oceanCellZi = (int)Math.Floor(oceanCellZf);
-            double cellFractionX = oceanCellXf - oceanCellXi;
-            double cellFractionZ = oceanCellZf - oceanCellZi;
+            var heightAtX = worldX / TerraGenConfig.landformMapScale;
+            var heightAtZ = worldZ / TerraGenConfig.landformMapScale;
+            var height = heightNoise.Height((int)heightAtX, (int)heightAtZ);
 
-            double coastOpacity = GameMath.BiLerp(
-                ocean.CoastOpacity(oceanCellXi,     oceanCellZi),
-                ocean.CoastOpacity(oceanCellXi + 1, oceanCellZi),
-                ocean.CoastOpacity(oceanCellXi,     oceanCellZi + 1),
-                ocean.CoastOpacity(oceanCellXi + 1, oceanCellZi + 1),
-                cellFractionX, cellFractionZ);
+            var thresholdIndex = GetHeightThresholdIndex(height);
+            var compValue = (float)(height * oceanicityCompMults[thresholdIndex]) * oceanicityFactor;
+            return (compValue + oceanicityCompFlats[thresholdIndex]);
+        }
 
-            return coastOpacity >= config.saltwaterAboveCoastOpacity ? -1f : float.MaxValue;
+        public int GetHeightThresholdIndex(double height) { //This will find a valid threshold or simply return the last one.
+            var thresholds = threshForOceanicityComp;
+            var prevThreshold = 0.0f;
+            int i;
+
+            for (i = 0; i < thresholds.Length; i++) {
+                if (height > prevThreshold && height <= thresholds[i]) {
+                    return i;
+                }
+                prevThreshold = thresholds[i];
+            }
+
+            return 0;
         }
 
         public void PrepareForNewHeightmap(int xCoord, int zCoord, int sizeX, int sizeZ) {
